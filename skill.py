@@ -1,16 +1,21 @@
 """Skill definitions describing how a skill scales with level.
 
-A `Skill` only holds the parameters that define its scaling (degree,
-max_sum, max_level, coeff_range) — it does not hold any polynomial itself.
-The same `Skill` can be possessed by many `Being`s, and each one acquires
-its own individual polynomial via `Skill.acquire_polynomial()`.
+A `Skill` carries its own default `max_sum` and `max_level` — the same
+skill always comes with the same defaults, no matter which Being possesses
+it. It does not hold any polynomial itself: the same `Skill` can be
+possessed by many `Being`s, and each one acquires its own individual
+polynomial via `Skill.acquire_polynomial()`.
+
+A Being (or a subtype of Being) may override `max_sum` and/or `max_level`
+per acquisition, e.g. to give a subtype a different budget or level cap for
+an otherwise shared skill.
 """
 
 from polynomial import generate_random_polynomial
 
 
 class Skill:
-    """Defines how a skill of this kind scales with level."""
+    """Defines how a skill of this kind scales with level, by default."""
 
     def __init__(self, name, degree, max_sum, max_level, coeff_range=(-10.0, 10.0)):
         if max_level < 1:
@@ -22,18 +27,26 @@ class Skill:
         self.max_level = max_level
         self.coeff_range = coeff_range
 
-    def acquire_polynomial(self):
+    def acquire_polynomial(self, max_sum=None, max_level=None):
         """Generate a fresh, individual set of scaling coefficients.
 
-        `max_level` is passed as `num_points` so the sum cap (`max_sum`) is
-        computed over this skill's actual level range (1..max_level).
+        Defaults to this skill's own `max_sum`/`max_level`; either can be
+        overridden for a particular acquisition (e.g. a Being subtype with
+        a different budget or level cap for this skill).
         """
+        if max_sum is None:
+            max_sum = self.max_sum
+        if max_level is None:
+            max_level = self.max_level
+
         return generate_random_polynomial(
-            self.degree, self.max_sum, coeff_range=self.coeff_range, num_points=self.max_level
+            self.degree, max_sum, coeff_range=self.coeff_range, num_points=max_level
         )
 
-    def value_at(self, coeffs, level):
+    def value_at(self, coeffs, level, max_level=None):
         """Return the value of a polynomial (as acquired above) at `level`."""
-        if not 1 <= level <= self.max_level:
-            raise ValueError(f"level must be between 1 and {self.max_level}")
+        if max_level is None:
+            max_level = self.max_level
+        if not 1 <= level <= max_level:
+            raise ValueError(f"level must be between 1 and {max_level}")
         return sum(c * level ** k for k, c in enumerate(coeffs))
