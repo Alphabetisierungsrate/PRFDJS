@@ -5,12 +5,18 @@ Beings can possess the same `Skill`, but each Being's polynomial for that
 skill is its own — acquired individually, not shared. A skill's `max_sum`
 and `max_level` default to whatever the skill itself defines, but a Being
 (or a subtype of Being) may override either when acquiring the skill.
+
+A Being's `species` identifies what kind of thing it is (e.g. "human",
+"goblin"), separate from its `name` (its individual identity). Stats,
+skills, and their max_sum/max_level overrides can later be looked up by
+species.
 """
 
 
 class Being:
-    def __init__(self, name):
+    def __init__(self, name, species):
         self.name = name
+        self.species = species
         self._skills = {}
 
     def acquire_skill(self, skill, max_sum=None, max_level=None):
