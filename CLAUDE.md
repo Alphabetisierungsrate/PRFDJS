@@ -15,6 +15,7 @@ list, or build step — just plain-stdlib Python 3 packages at the repo root:
 - `encounters/` — `Encounter`, `Action`, `Attack` (tick-driven combat)
 - `items/` — `Item` and its subtypes (e.g. `SlimeCore`)
 - `world/` — `Clock`, the global tick counter shared across systems
+- `maps/` — `Hex` and `HexMap` (hex-grid maps, one instance per map)
 - `tests/` — mirrors the packages above; `tests/test_scenario.py` is a cross-package
   integration scenario
 
@@ -161,6 +162,22 @@ to resolve before letting the other start. An action already in flight resolves 
 tick even if its actor has since died in the same resolution pass (`resolve_due()` processes `a`
 then `b`) — ticks don't rewind the past, so two attacks due on the same tick both land, allowing a
 genuine mutual-kill/draw.
+
+### Maps (`maps/hex.py`, `maps/hex_map.py`)
+
+Maps are hex grids, and each map is its own `HexMap` instance — there is no single global grid.
+`Hex` is an immutable, hashable axial coordinate `(q, r)` (with cube `s = -q - r` derived on
+demand); its six `neighbors()` and `distance()` are pure coordinate math. **The coordinate layer
+is orientation-agnostic** — pointy-top vs flat-top only changes rendering, not the math, so
+nothing commits to one yet (pointy-top is the plan for when rendering is added).
+
+A `HexMap` is any set of `Hex`es with one enforced invariant, checked by BFS flood-fill at
+construction: every hex must be reachable from every other through adjacent in-map hexes. That
+permits arbitrary shapes (solid blobs, rings with a hole in the middle, lines) but rejects
+disconnected islands. `HexMap.neighbors(cell)` returns only in-map neighbors; `shortest_path()`/
+`distance()` are BFS over in-map hexes and therefore route *around* holes (distinct from
+`Hex.distance`, which is straight-line and ignores shape). `HexMap.hexagon(radius)` builds a solid
+hexagonal map. Nothing places entities on maps yet — movement/positioning is future work.
 
 ## Conventions
 
