@@ -10,6 +10,9 @@ A Being's `species` identifies what kind of thing it is (e.g. "human",
 "goblin"), separate from its `name` (its individual identity). Stats,
 skills, and their max_sum/max_level overrides can later be looked up by
 species.
+
+A Being's `quests` is the set of Quests it currently holds (individually
+or via a Group it's part of) — kept in sync by Quest.accept/leave_group.
 """
 
 
@@ -18,6 +21,7 @@ class Being:
         self.name = name
         self.species = species
         self._skills = {}
+        self.quests = set()
 
     def acquire_skill(self, skill, max_sum=None, max_level=None):
         """Give this Being its own individual polynomial for `skill`.

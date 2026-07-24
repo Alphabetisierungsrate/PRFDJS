@@ -13,9 +13,13 @@ time. If a Group accepts the quest and one of its members already held it
 individually, that member's individual acceptance is folded into the
 group's (moved over, not rejected). The reverse — accepting individually
 while already covered via a group — is rejected outright. If a member
-leaves a group that holds the quest, they pick the quest back up
-individually only if the quest allows multiple acceptors and there's a
-free slot; otherwise they simply lose it.
+leaves a group that holds the quest, they retain it individually as long
+as the quest allows multiple acceptors and a slot is free — this applies
+regardless of whether they'd held it individually before the group ever
+picked it up. Otherwise they simply lose it.
+
+Every entity that ends up holding a quest (individually or via a group)
+gets it added to its own `quests` set, kept in sync as coverage changes.
 """
 
 from contract import Contract
@@ -75,12 +79,15 @@ class Quest(Contract):
         self._acceptors.append(acceptor)
         for member in members:
             self._entity_coverage[member] = acceptor
+            member.quests.add(self)
 
     def leave_group(self, group, entity):
         """`entity` leaves `group`, which holds this quest.
 
-        `entity` keeps the quest individually if it allows multiple
-        acceptors and a slot is free; otherwise it simply loses the quest.
+        `entity` retains the quest individually if it allows multiple
+        acceptors and a slot is free — whether or not `entity` held the
+        quest individually before the group ever accepted it. Otherwise it
+        simply loses the quest.
         """
         if self._entity_coverage.get(entity) is not group:
             raise ValueError(f"{entity!r} does not hold this quest via {group!r}")
@@ -94,3 +101,5 @@ class Quest(Contract):
         if self.allow_multiple and len(self._acceptors) < self.max_acceptors:
             self._acceptors.append(entity)
             self._entity_coverage[entity] = entity
+        else:
+            entity.quests.discard(self)
