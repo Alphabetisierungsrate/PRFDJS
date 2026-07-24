@@ -15,7 +15,7 @@ list, or build step — just plain-stdlib Python 3 packages at the repo root:
 - `encounters/` — `Encounter`, `Action`, `Attack` (tick-driven combat)
 - `items/` — `Item` and its subtypes (e.g. `SlimeCore`)
 - `world/` — `Clock`, the global tick counter shared across systems
-- `maps/` — `Hex` and `HexMap` (hex-grid maps, one instance per map)
+- `maps/` — `Hex`, `HexMap` (hex-grid maps, one instance per map) and `Positioning` (entities on a map + movement)
 - `tests/` — mirrors the packages above; `tests/test_scenario.py` is a cross-package
   integration scenario
 
@@ -177,7 +177,19 @@ permits arbitrary shapes (solid blobs, rings with a hole in the middle, lines) b
 disconnected islands. `HexMap.neighbors(cell)` returns only in-map neighbors; `shortest_path()`/
 `distance()` are BFS over in-map hexes and therefore route *around* holes (distinct from
 `Hex.distance`, which is straight-line and ignores shape). `HexMap.hexagon(radius)` builds a solid
-hexagonal map. Nothing places entities on maps yet — movement/positioning is future work.
+hexagonal map.
+
+`Positioning` (`maps/positioning.py`) is the mutable layer over one `HexMap` that tracks which
+entity stands on which hex and moves them — kept separate from `HexMap` so a map's shape stays
+pure/reusable while occupancy is its own state. At most one entity per hex. Movement is hex-by-hex
+to an adjacent hex and each step costs `ticks_per_hex` ticks, scheduled against the shared `Clock`
+(same drive loop as `Encounter`: `start_move()`, advance the clock, `resolve_due()`). A step in
+flight keeps the entity on its origin hex while *reserving* the destination (so `is_occupied`
+covers both settled and reserved hexes); the origin frees and the entity settles on arrival.
+Multi-hex travel is repeated single steps — `path_to()` returns the BFS route (routing around
+holes) and a driver starts the next step whenever the entity is idle. There are still no hex types
+(every hex costs the same) and combat isn't map-aware yet — `Encounter` remains location-less for
+now.
 
 ## Conventions
 
