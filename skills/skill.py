@@ -11,7 +11,7 @@ per acquisition, e.g. to give a subtype a different budget or level cap for
 an otherwise shared skill.
 """
 
-from polynomial import generate_random_polynomial
+from skills.polynomial import generate_random_polynomial
 
 
 class Skill:

@@ -1,7 +1,7 @@
 import random
 import unittest
 
-from polynomial import generate_random_polynomial
+from skills.polynomial import generate_random_polynomial
 
 
 def poly_sum(coeffs, num_points):

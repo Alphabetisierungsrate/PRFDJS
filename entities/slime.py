@@ -1,6 +1,6 @@
 """Slime: a Being subtype of species 'slime', used as a test enemy."""
 
-from being import Being
+from entities.being import Being
 
 
 class Slime(Being):

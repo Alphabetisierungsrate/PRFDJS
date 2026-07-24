@@ -9,7 +9,7 @@ and `remove_resolved()` prunes quests that are done (completed, failed,
 or expired) off the board.
 """
 
-from quest import QuestStatus
+from quests.quest import QuestStatus
 
 
 class QuestBoard:

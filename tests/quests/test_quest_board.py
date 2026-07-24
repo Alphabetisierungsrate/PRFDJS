@@ -1,8 +1,8 @@
 import unittest
 
-from human import Human
-from quest import Quest
-from quest_board import QuestBoard
+from entities.human import Human
+from quests.quest import Quest
+from quests.quest_board import QuestBoard
 
 
 class QuestBoardTests(unittest.TestCase):
