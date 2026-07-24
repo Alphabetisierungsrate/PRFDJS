@@ -20,10 +20,31 @@ picked it up. Otherwise they simply lose it.
 
 Every entity that ends up holding a quest (individually or via a group)
 gets it added to its own `quests` set, kept in sync as coverage changes.
+
+Every quest also carries a `status`:
+- OPEN: still has room for another acceptor.
+- TAKEN: fully accepted, no room left.
+- COMPLETED: resolved as a success.
+- FAILED: resolved as a failure (e.g. accepted but not pulled off).
+- EXPIRED: closed/timed out without ever being accepted at all.
+COMPLETED, FAILED, and EXPIRED are terminal: a quest can't move on from
+them, and it can no longer be accepted once resolved. OPEN/TAKEN are kept
+in sync automatically as acceptors come and go; the terminal states are
+only ever set explicitly, via complete()/fail()/expire().
 """
+
+from enum import Enum
 
 from contract import Contract
 from group import Group
+
+
+class QuestStatus(Enum):
+    OPEN = "open"
+    TAKEN = "taken"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    EXPIRED = "expired"
 
 
 class Quest(Contract):
@@ -41,11 +62,40 @@ class Quest(Contract):
 
         self._acceptors = []
         self._entity_coverage = {}
+        self.status = QuestStatus.OPEN
 
     @property
     def is_open(self):
         """Whether the quest still has room for another acceptor."""
         return len(self._acceptors) < self.max_acceptors
+
+    @property
+    def is_resolved(self):
+        """Whether the quest has reached a terminal status."""
+        return self.status in (QuestStatus.COMPLETED, QuestStatus.FAILED, QuestStatus.EXPIRED)
+
+    def _sync_open_taken_status(self):
+        if not self.is_resolved:
+            self.status = QuestStatus.OPEN if self.is_open else QuestStatus.TAKEN
+
+    def complete(self):
+        """Mark the quest resolved as a success."""
+        self._resolve_as(QuestStatus.COMPLETED)
+
+    def fail(self):
+        """Mark the quest resolved as a failure."""
+        self._resolve_as(QuestStatus.FAILED)
+
+    def expire(self):
+        """Mark the quest resolved as expired: it closed/timed out unaccepted."""
+        if self._acceptors:
+            raise ValueError("only a quest with no acceptors can expire")
+        self._resolve_as(QuestStatus.EXPIRED)
+
+    def _resolve_as(self, status):
+        if self.is_resolved:
+            raise ValueError(f"quest is already {self.status.value}")
+        self.status = status
 
     def accepted_by(self, entity):
         """The acceptor (the entity itself, or the Group) covering `entity`, or None."""
@@ -53,6 +103,9 @@ class Quest(Contract):
 
     def accept(self, acceptor):
         """Accept the quest on behalf of `acceptor` (an entity or a Group)."""
+        if self.is_resolved:
+            raise ValueError(f"quest is {self.status.value} and can no longer be accepted")
+
         members = list(acceptor.members) if isinstance(acceptor, Group) else [acceptor]
 
         moving_over = []
@@ -80,6 +133,7 @@ class Quest(Contract):
         for member in members:
             self._entity_coverage[member] = acceptor
             member.quests.add(self)
+        self._sync_open_taken_status()
 
     def leave_group(self, group, entity):
         """`entity` leaves `group`, which holds this quest.
@@ -103,3 +157,5 @@ class Quest(Contract):
             self._entity_coverage[entity] = entity
         else:
             entity.quests.discard(self)
+
+        self._sync_open_taken_status()
