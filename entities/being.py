@@ -13,18 +13,63 @@ species.
 
 A Being's `quests` is the set of Quests it currently holds (individually
 or via a Group it's part of) — kept in sync by Quest.accept/leave_group.
+
+A Being also has stats:
+- `hp`/`mana`: `Stat`s (current value bounded by a max). `heal()`/
+  `restore_mana()` add to the current value without exceeding the max;
+  the max itself can be changed later via `hp.set_max()`/`mana.set_max()`
+  (e.g. leveling up, equipment, buffs).
+- `base_attack`/`base_armor`/`base_magic`: plain mutable numbers, inputs to
+  later damage/defense calculations alongside skills.
+- `level`: starts at 1 (never 0, so level-based formulas don't break) and
+  `experience`: just a number for now — nothing yet acts on it to level up.
 """
+
+from entities.stat import Stat
 
 
 class Being:
-    def __init__(self, name, species):
+    def __init__(
+        self,
+        name,
+        species,
+        max_hp=10,
+        max_mana=10,
+        base_attack=0,
+        base_armor=0,
+        base_magic=0,
+        level=1,
+        experience=0,
+    ):
+        if level < 1:
+            raise ValueError("level must be >= 1")
+
         self.name = name
         self.species = species
         self._skills = {}
         self.quests = set()
 
+        self.hp = Stat(max_hp)
+        self.mana = Stat(max_mana)
+        self.base_attack = base_attack
+        self.base_armor = base_armor
+        self.base_magic = base_magic
+        self.level = level
+        self.experience = experience
+
     def __repr__(self):
-        return f"{type(self).__name__}(name={self.name!r}, species={self.species!r})"
+        return (
+            f"{type(self).__name__}(name={self.name!r}, species={self.species!r}, "
+            f"level={self.level})"
+        )
+
+    def heal(self, amount):
+        """Add `amount` to current HP, capped at max HP (and not below 0)."""
+        self.hp.add(amount)
+
+    def restore_mana(self, amount):
+        """Add `amount` to current mana, capped at max mana (and not below 0)."""
+        self.mana.add(amount)
 
     def acquire_skill(self, skill, max_sum=None, max_level=None):
         """Give this Being its own individual polynomial for `skill`.
