@@ -12,7 +12,8 @@ list, or build step — just plain-stdlib Python 3 packages at the repo root:
 - `entities/` — `Being` and its subtypes, plus `Group`
 - `skills/` — the polynomial scaling math and the `Skill` definition
 - `quests/` — `Contract`, `Quest`, `QuestBoard`
-- `tests/` — mirrors the three packages above (`tests/skills/`, `tests/quests/`)
+- `encounters/` — `Encounter`, `Action`, `Attack` (tick-driven combat)
+- `tests/` — mirrors the packages above (`tests/skills/`, `tests/quests/`, `tests/encounters/`)
 
 ## Commands
 
@@ -30,11 +31,12 @@ python3 -m unittest tests.quests.test_quest -v
 python3 -m unittest tests.quests.test_quest.QuestAcceptanceTests.test_leave_group_loses_quest_when_no_slot_free -v
 ```
 
-When you change acceptance/status logic in `quests/quest.py`/`quests/quest_board.py`, or the
-scaling math in `skills/polynomial.py`/`skills/skill.py`, add a case to the matching
-`tests/**/test_*.py` file rather than verifying with a one-off script — the suite is the source
-of truth for the edge cases that matter (double accept, group move-over, leave_group, status
-transitions, sum-scaling direction, zero-sum polynomial draws).
+When you change acceptance/status logic in `quests/quest.py`/`quests/quest_board.py`, the scaling
+math in `skills/polynomial.py`/`skills/skill.py`, or the tick/timing logic in
+`encounters/encounter.py`, add a case to the matching `tests/**/test_*.py` file rather than
+verifying with a one-off script — the suite is the source of truth for the edge cases that matter
+(double accept, group move-over, leave_group, status transitions, sum-scaling direction, zero-sum
+polynomial draws, exact-tick action resolution).
 
 ## Architecture
 
@@ -117,6 +119,29 @@ on `Contract`, not `Quest`, because future subtypes (e.g. curses) need it too.
 `open_quests`/`taken_quests` properties for displaying those two states differently, plus
 `remove_resolved()` to prune completed/failed/expired quests. Posting to a board is optional and
 not the only way a quest can be given out or accepted; `Quest.accept()` works standalone.
+
+### Encounters (`encounters/action.py`, `encounters/attack.py`, `encounters/encounter.py`)
+
+`Encounter(a, b)` is a tick-driven fight — for now strictly 1 vs 1, no location/environment
+concept. `tick()` advances the encounter's clock by exactly one tick, always — it never jumps
+ahead to "the next interesting moment". That's deliberate: either entity can have an action
+started for it the instant it's free, independent of what the other is doing (including
+mid-wind-up of its own action), and every encounter's `log` comes out in strict tick order by
+construction. It's also the reason a naive event-driven scheduler was rejected in favor of this:
+a real, steadily-advancing counter is what will let multiplayer work later — different callers
+reading/acting against the current tick of a fight don't have to coordinate around each other.
+
+`Action` (in `action.py`) bundles an `actor`, a `target`, and a `duration` in ticks; `apply()` is
+its effect, called once `duration` ticks have elapsed since `Encounter.start_action()` queued it.
+`Attack` (in `attack.py`) is the only action so far: fixed `duration`, deals
+`attacker.base_attack - defender.base_armor` (floored at 0) to the target's `hp`.
+
+An entity can only have one action in flight at a time (`is_ready()`/`start_action()` enforce
+this), but the two entities' actions are otherwise independent — `Encounter` doesn't wait for one
+to resolve before letting the other start. An action already in flight resolves at its scheduled
+tick even if its actor has since died in the same tick's resolution pass (`tick()` processes `a`
+then `b`) — ticks don't rewind the past, so a mutual-kill/draw is possible when both entities'
+attacks are due on the same tick.
 
 ## Conventions
 
