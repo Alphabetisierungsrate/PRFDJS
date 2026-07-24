@@ -55,13 +55,26 @@ Each `Being` calls `Skill.acquire_polynomial()` independently (optionally overri
 so two Beings with the "same" skill always get independently-generated coefficients while
 sharing the same default budget/level cap unless overridden.
 
-### Entities (`entities/being.py`, `entities/human.py`, `entities/goblin.py`, `entities/slime.py`)
+### Entities (`entities/being.py`, `entities/stat.py`, `entities/human.py`, `entities/goblin.py`, `entities/slime.py`)
 
 `Being` is the base for anything living: `name` + `species`, a private `_skills` map (skill →
 `{coeffs, max_level}`) built via `acquire_skill`/`skill_value`/`has_skill`, and a `quests` set
 that `Quest` keeps in sync (see below) so you can inspect what a Being holds from the Being side
 without going through the quest. `Human`, `Goblin`, `Slime` are trivial subtypes that just fix
-`species`; Goblin/Slime exist as test enemies.
+`species` and forward any stat overrides (`**stats`) to `Being`; Goblin/Slime exist as test
+enemies.
+
+A Being's stats:
+- `hp`/`mana` are `Stat`s (`entities/stat.py`): a `current` value bounded by `max_value`.
+  `Being.heal()`/`restore_mana()` add to `current` without exceeding `max_value` (or going below
+  0); `Stat.set_max()` changes `max_value` itself (leveling up, equipment, etc.), clamping
+  `current` down if it now exceeds the new max. A Being starts at full HP/mana.
+- `base_attack`/`base_armor`/`base_magic` are plain mutable numbers (default 0), meant as inputs
+  to future damage/defense calculations alongside skills — no current/max split, just set them
+  directly.
+- `level` starts at 1 and is validated `>= 1` (so level-based formulas, like skill scaling, never
+  see a 0 or negative level). `experience` is just a stored number for now; nothing acts on it to
+  level up yet.
 
 ### Groups (`entities/group.py`)
 

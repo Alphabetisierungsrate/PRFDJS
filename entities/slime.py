@@ -4,5 +4,5 @@ from entities.being import Being
 
 
 class Slime(Being):
-    def __init__(self, name):
-        super().__init__(name, species="slime")
+    def __init__(self, name, **stats):
+        super().__init__(name, species="slime", **stats)

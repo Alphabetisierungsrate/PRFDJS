@@ -4,5 +4,5 @@ from entities.being import Being
 
 
 class Goblin(Being):
-    def __init__(self, name):
-        super().__init__(name, species="goblin")
+    def __init__(self, name, **stats):
+        super().__init__(name, species="goblin", **stats)
