@@ -9,11 +9,14 @@ per-entity random polynomials, living entities ("Beings") with species and skill
 contract/quest system with acceptance and status tracking. There is no packaging, dependency
 list, or build step — just plain-stdlib Python 3 packages at the repo root:
 
-- `entities/` — `Being` and its subtypes, plus `Group`
+- `entities/` — `Being` and its subtypes, `Group`, `Stat`, `Inventory`, species base stats
 - `skills/` — the polynomial scaling math and the `Skill` definition
 - `quests/` — `Contract`, `Quest`, `QuestBoard`
 - `encounters/` — `Encounter`, `Action`, `Attack` (tick-driven combat)
-- `tests/` — mirrors the packages above (`tests/skills/`, `tests/quests/`, `tests/encounters/`)
+- `items/` — `Item` and its subtypes (e.g. `SlimeCore`)
+- `world/` — `Clock`, the global tick counter shared across systems
+- `tests/` — mirrors the packages above; `tests/test_scenario.py` is a cross-package
+  integration scenario
 
 ## Commands
 
@@ -84,6 +87,13 @@ the central place to tune enemy/ally base values for balancing. Passing any of t
 construction (directly or via a subtype's `**stats`) overrides the species default for that one
 Being only.
 
+An **inventory is optional**, not something every Being has: `has_inventory=True` gives a Being an
+`Inventory` (`entities/inventory.py`, a simple item bag), otherwise `being.inventory is None`.
+`drops` is the list of items a Being yields when slain; `Being.loot(other)` moves another Being's
+`drops` into this one's inventory (and empties them), and `Being.pick_up(item)` adds a single
+item — both raise if this Being has no inventory. Items live in `items/` (`Item` base, subtypes
+like `SlimeCore`).
+
 ### Groups (`entities/group.py`)
 
 `Group` is a bare list of member entities with `add_member`/`remove_member`. It exists so
@@ -120,28 +130,37 @@ on `Contract`, not `Quest`, because future subtypes (e.g. curses) need it too.
 `remove_resolved()` to prune completed/failed/expired quests. Posting to a board is optional and
 not the only way a quest can be given out or accepted; `Quest.accept()` works standalone.
 
+### The global clock (`world/clock.py`)
+
+`Clock` is the single, shared measure of in-game time — **time is not owned by any encounter or
+system**. `advance()` moves it forward by exactly one tick and never jumps ahead to "the next
+interesting moment". Everything that cares about timing reads one clock's `current_tick` and
+schedules against it, so several fights (and, later, multiplayer) can run against the same tick
+line without callers having to coordinate.
+
 ### Encounters (`encounters/action.py`, `encounters/attack.py`, `encounters/encounter.py`)
 
-`Encounter(a, b)` is a tick-driven fight — for now strictly 1 vs 1, no location/environment
-concept. `tick()` advances the encounter's clock by exactly one tick, always — it never jumps
-ahead to "the next interesting moment". That's deliberate: either entity can have an action
-started for it the instant it's free, independent of what the other is doing (including
-mid-wind-up of its own action), and every encounter's `log` comes out in strict tick order by
-construction. It's also the reason a naive event-driven scheduler was rejected in favor of this:
-a real, steadily-advancing counter is what will let multiplayer work later — different callers
-reading/acting against the current tick of a fight don't have to coordinate around each other.
+`Encounter(a, b, clock)` is a tick-driven fight — for now strictly 1 vs 1, no location/environment
+concept. It **does not own time**: it reads the shared `Clock` passed in (`encounter.current_tick`
+just proxies `clock.current_tick`). To drive a fight you advance the clock yourself and then call
+`encounter.resolve_due()`, which applies any actions that have come due at the current tick and
+returns them (see `tests/test_scenario.py`'s `run_encounter` helper for the canonical loop). This
+separation is deliberate: either entity can have an action started for it the instant it's free,
+independent of what the other is doing (including mid-wind-up of its own action); the `log` comes
+out in strict tick order by construction; and because the clock is global rather than
+per-encounter, concurrent fights and eventual multiplayer stay tractable.
 
 `Action` (in `action.py`) bundles an `actor`, a `target`, and a `duration` in ticks; `apply()` is
-its effect, called once `duration` ticks have elapsed since `Encounter.start_action()` queued it.
-`Attack` (in `attack.py`) is the only action so far: fixed `duration`, deals
-`attacker.base_attack - defender.base_armor` (floored at 0) to the target's `hp`.
+its effect, called by `resolve_due()` once `duration` ticks have elapsed since
+`Encounter.start_action()` queued it. `Attack` (in `attack.py`) is the only action so far: fixed
+`duration`, deals `attacker.base_attack - defender.base_armor` (floored at 0) to the target's `hp`.
 
 An entity can only have one action in flight at a time (`is_ready()`/`start_action()` enforce
 this), but the two entities' actions are otherwise independent — `Encounter` doesn't wait for one
 to resolve before letting the other start. An action already in flight resolves at its scheduled
-tick even if its actor has since died in the same tick's resolution pass (`tick()` processes `a`
-then `b`) — ticks don't rewind the past, so a mutual-kill/draw is possible when both entities'
-attacks are due on the same tick.
+tick even if its actor has since died in the same resolution pass (`resolve_due()` processes `a`
+then `b`) — ticks don't rewind the past, so two attacks due on the same tick both land, allowing a
+genuine mutual-kill/draw.
 
 ## Conventions
 

@@ -29,8 +29,14 @@ Being's species entry in `species_stats.SPECIES_BASE_STATS` (falling back to
 a flat 10/10/0/0/0 for an unregistered species) so base values for balancing
 live in one central place instead of being hardcoded per subtype. Passing
 any of them explicitly overrides the species default for that one Being.
+
+An inventory is an optional capability, not something every Being carries:
+pass `has_inventory=True` to give this Being an `Inventory` (otherwise
+`inventory is None`). `drops` is the list of items this Being yields when
+slain; another Being with an inventory can `loot()` them.
 """
 
+from entities.inventory import Inventory
 from entities.species_stats import base_stats_for
 from entities.stat import Stat
 
@@ -47,6 +53,8 @@ class Being:
         base_magic=None,
         level=1,
         experience=0,
+        has_inventory=False,
+        drops=None,
     ):
         if level < 1:
             raise ValueError("level must be >= 1")
@@ -66,6 +74,9 @@ class Being:
         self.level = level
         self.experience = experience
 
+        self.inventory = Inventory() if has_inventory else None
+        self.drops = list(drops) if drops else []
+
     def __repr__(self):
         return (
             f"{type(self).__name__}(name={self.name!r}, species={self.species!r}, "
@@ -79,6 +90,27 @@ class Being:
     def restore_mana(self, amount):
         """Add `amount` to current mana, capped at max mana (and not below 0)."""
         self.mana.add(amount)
+
+    def pick_up(self, item):
+        """Put `item` into this Being's inventory (raises if it has none)."""
+        if self.inventory is None:
+            raise ValueError(f"{self.name} has no inventory to hold {item!r}")
+        self.inventory.add(item)
+        return item
+
+    def loot(self, other):
+        """Move all of `other`'s drops into this Being's inventory.
+
+        Raises if this Being has no inventory. Returns the looted items and
+        empties `other.drops` so the same drops can't be looted twice.
+        """
+        if self.inventory is None:
+            raise ValueError(f"{self.name} has no inventory to loot into")
+        looted = list(other.drops)
+        for item in looted:
+            self.inventory.add(item)
+        other.drops = []
+        return looted
 
     def acquire_skill(self, skill, max_sum=None, max_level=None):
         """Give this Being its own individual polynomial for `skill`.
