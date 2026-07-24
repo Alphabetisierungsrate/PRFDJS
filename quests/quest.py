@@ -35,8 +35,8 @@ only ever set explicitly, via complete()/fail()/expire().
 
 from enum import Enum
 
-from contract import Contract
-from group import Group
+from quests.contract import Contract
+from entities.group import Group
 
 
 class QuestStatus(Enum):

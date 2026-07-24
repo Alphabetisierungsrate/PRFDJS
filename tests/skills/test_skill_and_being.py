@@ -1,8 +1,8 @@
 import random
 import unittest
 
-from being import Being
-from skill import Skill
+from entities.being import Being
+from skills.skill import Skill
 
 
 class SkillAndBeingTests(unittest.TestCase):

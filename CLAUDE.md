@@ -7,8 +7,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A small, in-progress Python simulation/RPG-style entity system: skills that scale with level via
 per-entity random polynomials, living entities ("Beings") with species and skills, and a
 contract/quest system with acceptance and status tracking. There is no packaging, dependency
-list, or build step — just plain-stdlib Python 3 modules at the repo root, with tests under
-`tests/`.
+list, or build step — just plain-stdlib Python 3 packages at the repo root:
+
+- `entities/` — `Being` and its subtypes, plus `Group`
+- `skills/` — the polynomial scaling math and the `Skill` definition
+- `quests/` — `Contract`, `Quest`, `QuestBoard`
+- `tests/` — mirrors the three packages above (`tests/skills/`, `tests/quests/`)
 
 ## Commands
 
@@ -22,28 +26,28 @@ python3 -m unittest discover -v
 To run a single test file or a single test:
 
 ```bash
-python3 -m unittest tests.test_quest -v
-python3 -m unittest tests.test_quest.QuestAcceptanceTests.test_leave_group_loses_quest_when_no_slot_free -v
+python3 -m unittest tests.quests.test_quest -v
+python3 -m unittest tests.quests.test_quest.QuestAcceptanceTests.test_leave_group_loses_quest_when_no_slot_free -v
 ```
 
-When you change acceptance/status logic in `quest.py`/`quest_board.py`, or the scaling math in
-`polynomial.py`/`skill.py`, add a case to the relevant `tests/test_*.py` file rather than
-verifying with a one-off script — the suite is the source of truth for the edge cases that
-matter (double accept, group move-over, leave_group, status transitions, sum-scaling direction,
-zero-sum polynomial draws).
+When you change acceptance/status logic in `quests/quest.py`/`quests/quest_board.py`, or the
+scaling math in `skills/polynomial.py`/`skills/skill.py`, add a case to the matching
+`tests/**/test_*.py` file rather than verifying with a one-off script — the suite is the source
+of truth for the edge cases that matter (double accept, group move-over, leave_group, status
+transitions, sum-scaling direction, zero-sum polynomial draws).
 
 ## Architecture
 
-### Skill scaling (`polynomial.py`, `skill.py`)
+### Skill scaling (`skills/polynomial.py`, `skills/skill.py`)
 
-`generate_random_polynomial(degree, max_sum, coeff_range, num_points)` in `polynomial.py` draws
+`generate_random_polynomial(degree, max_sum, coeff_range, num_points)` in `skills/polynomial.py` draws
 random coefficients and then **always** rescales them (up or down) so that
 `sum(P(x) for x in 1..num_points)` lands exactly on `max_sum`. On the rare draw whose raw sum is
 exactly zero (unscalable), it redraws rather than returning coefficients that don't hit
 `max_sum`. `num_points` is the parameter that must be passed as the entity's max level for that
 sum to be meaningful.
 
-`Skill` (in `skill.py`) is a shared *definition*: it owns the default `degree`, `max_sum`,
+`Skill` (in `skills/skill.py`) is a shared *definition*: it owns the default `degree`, `max_sum`,
 `max_level`, and `coeff_range` for that kind of skill — the same `Skill` instance is meant to be
 reused across every `Being` that has it. Crucially, `Skill` itself holds no polynomial state.
 Each `Being` calls `Skill.acquire_polynomial()` independently (optionally overriding `max_sum`/
@@ -51,7 +55,7 @@ Each `Being` calls `Skill.acquire_polynomial()` independently (optionally overri
 so two Beings with the "same" skill always get independently-generated coefficients while
 sharing the same default budget/level cap unless overridden.
 
-### Entities (`being.py`, `human.py`, `goblin.py`, `slime.py`)
+### Entities (`entities/being.py`, `entities/human.py`, `entities/goblin.py`, `entities/slime.py`)
 
 `Being` is the base for anything living: `name` + `species`, a private `_skills` map (skill →
 `{coeffs, max_level}`) built via `acquire_skill`/`skill_value`/`has_skill`, and a `quests` set
@@ -59,12 +63,12 @@ that `Quest` keeps in sync (see below) so you can inspect what a Being holds fro
 without going through the quest. `Human`, `Goblin`, `Slime` are trivial subtypes that just fix
 `species`; Goblin/Slime exist as test enemies.
 
-### Groups (`group.py`)
+### Groups (`entities/group.py`)
 
 `Group` is a bare list of member entities with `add_member`/`remove_member`. It exists so
 multiple entities can act as a single acceptor on a `Quest` — it has no other behavior.
 
-### Contracts and quests (`contract.py`, `quest.py`, `quest_board.py`)
+### Contracts and quests (`quests/contract.py`, `quests/quest.py`, `quests/quest_board.py`)
 
 `Contract` is the deliberately barebones base for any binding agreement/effect: a `name` and a
 list of zero-arg `conditions` callables, with `is_successful()` = all conditions true. This lives

@@ -1,6 +1,6 @@
 """Human: a Being subtype of species 'human'."""
 
-from being import Being
+from entities.being import Being
 
 
 class Human(Being):

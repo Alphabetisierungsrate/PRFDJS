@@ -1,6 +1,6 @@
 """Goblin: a Being subtype of species 'goblin', used as a test enemy."""
 
-from being import Being
+from entities.being import Being
 
 
 class Goblin(Being):

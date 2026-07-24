@@ -1,8 +1,8 @@
 import unittest
 
-from group import Group
-from human import Human
-from quest import Quest, QuestStatus
+from entities.group import Group
+from entities.human import Human
+from quests.quest import Quest, QuestStatus
 
 
 class QuestAcceptanceTests(unittest.TestCase):
