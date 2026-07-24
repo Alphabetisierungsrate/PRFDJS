@@ -3,6 +3,8 @@ import unittest
 from entities.being import Being
 from entities.goblin import Goblin
 from entities.human import Human
+from entities.slime import Slime
+from entities.species_stats import SPECIES_BASE_STATS
 
 
 class BeingStatsTests(unittest.TestCase):
@@ -12,9 +14,34 @@ class BeingStatsTests(unittest.TestCase):
         self.assertEqual(alice.experience, 0)
         self.assertEqual(alice.hp.current, alice.hp.max_value)
         self.assertEqual(alice.mana.current, alice.mana.max_value)
-        self.assertEqual(alice.base_attack, 0)
-        self.assertEqual(alice.base_armor, 0)
-        self.assertEqual(alice.base_magic, 0)
+
+    def test_unregistered_species_falls_back_to_flat_defaults(self):
+        dragon = Being("Smaug", species="dragon")
+        self.assertEqual(dragon.hp.max_value, 10)
+        self.assertEqual(dragon.mana.max_value, 10)
+        self.assertEqual(dragon.base_attack, 0)
+        self.assertEqual(dragon.base_armor, 0)
+        self.assertEqual(dragon.base_magic, 0)
+
+    def test_subtypes_pick_up_their_species_base_stats(self):
+        alice = Human("Alice")
+        grix = Goblin("Grix")
+        ooze = Slime("Ooze")
+
+        for being, species in ((alice, "human"), (grix, "goblin"), (ooze, "slime")):
+            expected = SPECIES_BASE_STATS[species]
+            self.assertEqual(being.hp.max_value, expected["max_hp"])
+            self.assertEqual(being.mana.max_value, expected["max_mana"])
+            self.assertEqual(being.base_attack, expected["base_attack"])
+            self.assertEqual(being.base_armor, expected["base_armor"])
+            self.assertEqual(being.base_magic, expected["base_magic"])
+
+    def test_instance_override_wins_over_species_default(self):
+        grix = Goblin("Grix", max_hp=999, base_attack=999)
+        self.assertEqual(grix.hp.max_value, 999)
+        self.assertEqual(grix.base_attack, 999)
+        # Untouched stats still come from the goblin species defaults.
+        self.assertEqual(grix.base_armor, SPECIES_BASE_STATS["goblin"]["base_armor"])
 
     def test_starts_at_full_hp_and_mana(self):
         alice = Being("Alice", species="human", max_hp=30, max_mana=15)

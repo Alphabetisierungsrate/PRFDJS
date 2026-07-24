@@ -55,7 +55,7 @@ Each `Being` calls `Skill.acquire_polynomial()` independently (optionally overri
 so two Beings with the "same" skill always get independently-generated coefficients while
 sharing the same default budget/level cap unless overridden.
 
-### Entities (`entities/being.py`, `entities/stat.py`, `entities/human.py`, `entities/goblin.py`, `entities/slime.py`)
+### Entities (`entities/being.py`, `entities/stat.py`, `entities/species_stats.py`, `entities/human.py`, `entities/goblin.py`, `entities/slime.py`)
 
 `Being` is the base for anything living: `name` + `species`, a private `_skills` map (skill →
 `{coeffs, max_level}`) built via `acquire_skill`/`skill_value`/`has_skill`, and a `quests` set
@@ -69,12 +69,18 @@ A Being's stats:
   `Being.heal()`/`restore_mana()` add to `current` without exceeding `max_value` (or going below
   0); `Stat.set_max()` changes `max_value` itself (leveling up, equipment, etc.), clamping
   `current` down if it now exceeds the new max. A Being starts at full HP/mana.
-- `base_attack`/`base_armor`/`base_magic` are plain mutable numbers (default 0), meant as inputs
-  to future damage/defense calculations alongside skills — no current/max split, just set them
-  directly.
+- `base_attack`/`base_armor`/`base_magic` are plain mutable numbers, meant as inputs to future
+  damage/defense calculations alongside skills — no current/max split, just set them directly.
 - `level` starts at 1 and is validated `>= 1` (so level-based formulas, like skill scaling, never
   see a 0 or negative level). `experience` is just a stored number for now; nothing acts on it to
   level up yet.
+
+`max_hp`/`max_mana`/`base_attack`/`base_armor`/`base_magic` default to whatever
+`species_stats.SPECIES_BASE_STATS` has registered for that Being's species (falling back to a
+flat 10/10/0/0/0 for an unregistered species), rather than being hardcoded per subtype — this is
+the central place to tune enemy/ally base values for balancing. Passing any of them explicitly at
+construction (directly or via a subtype's `**stats`) overrides the species default for that one
+Being only.
 
 ### Groups (`entities/group.py`)
 

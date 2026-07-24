@@ -23,8 +23,15 @@ A Being also has stats:
   later damage/defense calculations alongside skills.
 - `level`: starts at 1 (never 0, so level-based formulas don't break) and
   `experience`: just a number for now — nothing yet acts on it to level up.
+
+`max_hp`/`max_mana`/`base_attack`/`base_armor`/`base_magic` default to this
+Being's species entry in `species_stats.SPECIES_BASE_STATS` (falling back to
+a flat 10/10/0/0/0 for an unregistered species) so base values for balancing
+live in one central place instead of being hardcoded per subtype. Passing
+any of them explicitly overrides the species default for that one Being.
 """
 
+from entities.species_stats import base_stats_for
 from entities.stat import Stat
 
 
@@ -33,27 +40,29 @@ class Being:
         self,
         name,
         species,
-        max_hp=10,
-        max_mana=10,
-        base_attack=0,
-        base_armor=0,
-        base_magic=0,
+        max_hp=None,
+        max_mana=None,
+        base_attack=None,
+        base_armor=None,
+        base_magic=None,
         level=1,
         experience=0,
     ):
         if level < 1:
             raise ValueError("level must be >= 1")
 
+        defaults = base_stats_for(species)
+
         self.name = name
         self.species = species
         self._skills = {}
         self.quests = set()
 
-        self.hp = Stat(max_hp)
-        self.mana = Stat(max_mana)
-        self.base_attack = base_attack
-        self.base_armor = base_armor
-        self.base_magic = base_magic
+        self.hp = Stat(max_hp if max_hp is not None else defaults.get("max_hp", 10))
+        self.mana = Stat(max_mana if max_mana is not None else defaults.get("max_mana", 10))
+        self.base_attack = base_attack if base_attack is not None else defaults.get("base_attack", 0)
+        self.base_armor = base_armor if base_armor is not None else defaults.get("base_armor", 0)
+        self.base_magic = base_magic if base_magic is not None else defaults.get("base_magic", 0)
         self.level = level
         self.experience = experience
 
