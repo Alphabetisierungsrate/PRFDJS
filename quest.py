@@ -64,6 +64,9 @@ class Quest(Contract):
         self._entity_coverage = {}
         self.status = QuestStatus.OPEN
 
+    def __repr__(self):
+        return f"Quest({self.name!r}, status={self.status.value})"
+
     @property
     def is_open(self):
         """Whether the quest still has room for another acceptor."""

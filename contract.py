@@ -14,3 +14,6 @@ class Contract:
     def is_successful(self):
         """A Contract is successful once every one of its conditions is met."""
         return all(condition() for condition in self.conditions)
+
+    def __repr__(self):
+        return f"{type(self).__name__}({self.name!r})"

@@ -9,7 +9,9 @@ def generate_random_polynomial(degree, max_sum, coeff_range=(-10.0, 10.0), num_p
     The polynomial P(x) = a0 + a1*x + ... + a_degree*x^degree is built from
     coefficients drawn uniformly from `coeff_range`, then all coefficients
     are scaled proportionally (up or down) so that the sum of P(x) for
-    x = 1..num_points lands exactly at `max_sum`.
+    x = 1..num_points lands exactly at `max_sum`. On the rare draw whose sum
+    is exactly zero (so it can't be scaled to anything nonzero), the
+    coefficients are redrawn until the sum is nonzero.
 
     Args:
         degree: Non-negative integer degree of the polynomial.
@@ -28,15 +30,20 @@ def generate_random_polynomial(degree, max_sum, coeff_range=(-10.0, 10.0), num_p
     if num_points < 1:
         raise ValueError("num_points must be >= 1")
 
-    coeffs = [random.uniform(*coeff_range) for _ in range(degree + 1)]
+    def draw():
+        return [random.uniform(*coeff_range) for _ in range(degree + 1)]
 
-    total = sum(
-        sum(c * x ** k for k, c in enumerate(coeffs))
-        for x in range(1, num_points + 1)
-    )
+    def total_over_range(coeffs):
+        return sum(
+            sum(c * x ** k for k, c in enumerate(coeffs))
+            for x in range(1, num_points + 1)
+        )
 
-    if total != 0:
-        scale = max_sum / total
-        coeffs = [c * scale for c in coeffs]
+    coeffs = draw()
+    total = total_over_range(coeffs)
+    while total == 0:
+        coeffs = draw()
+        total = total_over_range(coeffs)
 
-    return coeffs
+    scale = max_sum / total
+    return [c * scale for c in coeffs]

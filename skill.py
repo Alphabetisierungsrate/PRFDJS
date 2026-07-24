@@ -50,3 +50,6 @@ class Skill:
         if not 1 <= level <= max_level:
             raise ValueError(f"level must be between 1 and {max_level}")
         return sum(c * level ** k for k, c in enumerate(coeffs))
+
+    def __repr__(self):
+        return f"Skill({self.name!r})"

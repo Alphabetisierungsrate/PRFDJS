@@ -7,29 +7,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A small, in-progress Python simulation/RPG-style entity system: skills that scale with level via
 per-entity random polynomials, living entities ("Beings") with species and skills, and a
 contract/quest system with acceptance and status tracking. There is no packaging, dependency
-list, build step, or test suite yet — just plain-stdlib Python 3 modules at the repo root.
+list, or build step — just plain-stdlib Python 3 modules at the repo root, with tests under
+`tests/`.
 
 ## Commands
 
-There is no test runner, linter, or build configured. To sanity-check a change, run an ad-hoc
-script against the modules directly, e.g.:
+There is no build or lint configured. Tests use the standard library's `unittest` (no
+dependencies to install):
 
 ```bash
-python3 -c "
-from human import Human
-from skill import Skill
-h = Human('Alice')
-strength = Skill('strength', degree=2, max_sum=100, max_level=10)
-h.acquire_skill(strength)
-print(h.skill_value(strength, 5))
-"
+python3 -m unittest discover -v
 ```
 
-Whenever you change acceptance/status logic in `quest.py` or `quest_board.py`, or the scaling
-math in `polynomial.py`/`skill.py`, write one of these throwaway scripts that exercises the
-specific edge cases (see recent commit messages for the kinds of scenarios that matter — double
-accept, group move-over, leave_group, status transitions, sum-scaling direction) before
-considering the change done; there's no automated suite to catch regressions otherwise.
+To run a single test file or a single test:
+
+```bash
+python3 -m unittest tests.test_quest -v
+python3 -m unittest tests.test_quest.QuestAcceptanceTests.test_leave_group_loses_quest_when_no_slot_free -v
+```
+
+When you change acceptance/status logic in `quest.py`/`quest_board.py`, or the scaling math in
+`polynomial.py`/`skill.py`, add a case to the relevant `tests/test_*.py` file rather than
+verifying with a one-off script — the suite is the source of truth for the edge cases that
+matter (double accept, group move-over, leave_group, status transitions, sum-scaling direction,
+zero-sum polynomial draws).
 
 ## Architecture
 
@@ -37,9 +38,10 @@ considering the change done; there's no automated suite to catch regressions oth
 
 `generate_random_polynomial(degree, max_sum, coeff_range, num_points)` in `polynomial.py` draws
 random coefficients and then **always** rescales them (up or down) so that
-`sum(P(x) for x in 1..num_points)` lands exactly on `max_sum` (as long as the raw sum isn't
-zero). `num_points` is the parameter that must be passed as the entity's max level for that sum
-to be meaningful.
+`sum(P(x) for x in 1..num_points)` lands exactly on `max_sum`. On the rare draw whose raw sum is
+exactly zero (unscalable), it redraws rather than returning coefficients that don't hit
+`max_sum`. `num_points` is the parameter that must be passed as the entity's max level for that
+sum to be meaningful.
 
 `Skill` (in `skill.py`) is a shared *definition*: it owns the default `degree`, `max_sum`,
 `max_level`, and `coeff_range` for that kind of skill — the same `Skill` instance is meant to be
@@ -92,6 +94,12 @@ on `Contract`, not `Quest`, because future subtypes (e.g. curses) need it too.
 `open_quests`/`taken_quests` properties for displaying those two states differently, plus
 `remove_resolved()` to prune completed/failed/expired quests. Posting to a board is optional and
 not the only way a quest can be given out or accepted; `Quest.accept()` works standalone.
+
+## Conventions
+
+`Being`, `Group`, `Skill`, `Contract`, and `Quest` all define `__repr__` (name/species, quest
+status, etc.) so error messages and debugging output are readable instead of showing raw object
+addresses — add one to any new core class in the same style.
 
 ## Git workflow
 
