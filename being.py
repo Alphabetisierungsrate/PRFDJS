@@ -23,6 +23,9 @@ class Being:
         self._skills = {}
         self.quests = set()
 
+    def __repr__(self):
+        return f"{type(self).__name__}(name={self.name!r}, species={self.species!r})"
+
     def acquire_skill(self, skill, max_sum=None, max_level=None):
         """Give this Being its own individual polynomial for `skill`.
 

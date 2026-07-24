@@ -12,3 +12,6 @@ class Group:
     def remove_member(self, entity):
         if entity in self.members:
             self.members.remove(entity)
+
+    def __repr__(self):
+        return f"Group({self.members!r})"
